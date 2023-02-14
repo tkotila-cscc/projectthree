@@ -1,67 +1,118 @@
 package cscc.tkotila;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Scanner;
+import java.util.*;
+import java.util.function.Predicate;
 
 public class Main {
-    public static void main(String[] args) {
-        Scanner userInput = new Scanner(System.in).useDelimiter("\n");
-        List<String> tasks = new ArrayList<>();
-        String userChoice = queryUserInput(userInput);
+    static Scanner INPUT_SCANNER = new Scanner(System.in).useDelimiter("\n");
+    static List<TodoItem> TASKS = new ArrayList<>();
+    static final String OPTION_QUERY = "(1) Add a task.\n(2) Remove a task.\n(3) Update a task.\n(4) List all tasks.\n(0) Exit.";
+    static final String[] OPTION_LIST = {"0", "1", "2", "3", "4"};
 
-        while (!Objects.equals(userChoice, "0")) {
-            switch (userChoice) {
-                case "1" -> addTask(tasks, userInput);
-                case "2" -> removeTask(tasks, userInput);
-                case "3" -> updateTask(tasks, userInput);
-                case "4" -> {
-                    for (int i = 0; i < tasks.size(); i++) {
-                        System.out.printf("%d ) %s%n", i, tasks.get(i));
-                    }
-                }
-                default -> System.out.println("Please enter a valid command.");
+    public static void main(String[] args) {
+        String option = query(OPTION_QUERY, s -> Arrays.asList(OPTION_LIST).contains(s));
+
+        while (!option.equals("0")) {
+            switch (option) {
+                case "1" -> addTask();
+                case "2" -> removeTask();
+                case "3" -> updateTask();
+                case "4" -> listTasks();
             }
 
-            userChoice = queryUserInput(userInput);
+            TASKS.sort(Comparator.comparingInt(TodoItem::getPriority));
+            option = query(OPTION_QUERY, s -> Arrays.asList(OPTION_LIST).contains(s));
         }
     }
 
-    private static void updateTask(List<String> tasks, Scanner userInput) {
-        System.out.println("Enter the index of the task you would like to update: ");
-        int taskIndex = userInput.nextInt();
-        System.out.println("Enter a new description for the task: ");
+    static void addTask() {
+        TASKS.add(
+                new TodoItem(
+                        query("Enter a title for the task:"),
+                        query("Enter a description for the task:"),
+                        Integer.parseInt(
+                                query("Enter a priority for the task:",
+                                    s -> validateIntegerFormat(s, 0, 5)
+                                )
+                        )
+                )
+        );
+    }
+
+    static void removeTask() {
+        TASKS.removeIf(
+                item -> Objects.equals(
+                    item.getTitle(),
+                    query("Enter the title of the task you wish to delete:")
+                )
+        );
+    }
+
+    static void updateTask() {
+        TodoItem modifiedTask;
 
         try {
-            tasks.set(taskIndex, userInput.next());
-        } catch (IndexOutOfBoundsException e) {
-            System.out.println("Task does not exist.");
+            modifiedTask = TASKS.stream()
+                    .filter(item -> Objects.equals(item.getTitle(), query("Enter the title of the task you wish to modify:")))
+                    .findFirst()
+                    .get();
+        } catch (NoSuchElementException e) {
+            System.out.println("There are no tasks with that title.");
+            return;
+        }
+
+        TASKS.removeIf(
+                item -> Objects.equals(
+                        item.getTitle(),
+                        modifiedTask.getTitle()
+                )
+        );
+
+        TASKS.add(
+                new TodoItem(
+                        modifiedTask.getTitle(),
+                        query("Enter a description for the task:"),
+                        Integer.parseInt(
+                                query("Enter a priority for the task:",
+                                        s -> validateIntegerFormat(s, 0, 5)
+                                )
+                        )
+                )
+        );
+    }
+
+    static void listTasks() {
+        for (TodoItem task: TASKS) {
+            System.out.println(task);
         }
     }
 
-    private static void removeTask(List<String> tasks, Scanner userInput) {
-        System.out.println("Enter the index of the task you would like to delete: ");
+    static String query(String queryMessage) {
+        System.out.println(queryMessage);
+        return INPUT_SCANNER.next();
+    }
+
+    static String query(String queryMessage, Predicate<String> validator) {
+        System.out.println(queryMessage);
+        String result = INPUT_SCANNER.next();
+
+        while (!validator.test(result)) {
+            System.out.println("Invalid input.");
+            result = INPUT_SCANNER.next();
+        }
+
+        return result;
+    }
+
+    static boolean validateIntegerFormat(String s, int min, int max) {
+        int parsed;
 
         try {
-            tasks.remove(userInput.nextInt());
-        } catch (IndexOutOfBoundsException e) {
-            System.out.println("Task does not exist.");
+            parsed = Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return false;
         }
-    }
 
-    private static void addTask(List<String> tasks, Scanner userInput) {
-        System.out.println("Enter a description for your task: ");
-        tasks.add(userInput.next());
-    }
-
-    private static String queryUserInput(Scanner userInput) {
-        System.out.println("Please choose an option:");
-        System.out.println("(1) Add a task.");
-        System.out.println("(2) Remove a task.");
-        System.out.println("(3) Update a task.");
-        System.out.println("(4) List all tasks.");
-        System.out.println("(0) Exit.");
-        return userInput.next();
+        return parsed >= min && parsed <= max;
     }
 }
