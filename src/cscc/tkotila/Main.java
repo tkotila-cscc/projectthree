@@ -1,118 +1,234 @@
 package cscc.tkotila;
 
 import java.util.*;
-import java.util.function.Predicate;
+import java.util.function.Consumer;
 
 public class Main {
-    static Scanner INPUT_SCANNER = new Scanner(System.in).useDelimiter("\n");
-    static List<TodoItem> TASKS = new ArrayList<>();
-    static final String OPTION_QUERY = "(1) Add a task.\n(2) Remove a task.\n(3) Update a task.\n(4) List all tasks.\n(0) Exit.";
-    static final String[] OPTION_LIST = {"0", "1", "2", "3", "4"};
+    private static final Scanner SCANNER = new Scanner(System.in).useDelimiter("\n");
 
     public static void main(String[] args) {
-        String option = query(OPTION_QUERY, s -> Arrays.asList(OPTION_LIST).contains(s));
+        printChoices();
+        TodoItemCollection tasks = new TodoItemCollection();
+        String choice = SCANNER.next();
 
-        while (!option.equals("0")) {
-            switch (option) {
-                case "1" -> addTask();
-                case "2" -> removeTask();
-                case "3" -> updateTask();
-                case "4" -> listTasks();
+        while (!Objects.equals(choice, "0")) {
+            switch (choice) {
+                case "1" -> addTask(tasks);
+                case "2" -> removeTask(tasks);
+                case "3" -> editTask(tasks);
+                case "4" -> listTasks(tasks);
+                default -> System.out.println("Invalid option.");
             }
-
-            TASKS.sort(Comparator.comparingInt(TodoItem::getPriority));
-            option = query(OPTION_QUERY, s -> Arrays.asList(OPTION_LIST).contains(s));
+            tasks.sort();
+            printChoices();
+            choice = SCANNER.next();
         }
     }
 
-    static void addTask() {
-        TASKS.add(
-                new TodoItem(
-                        query("Enter a title for the task:"),
-                        query("Enter a description for the task:"),
-                        Integer.parseInt(
-                                query("Enter a priority for the task:",
-                                    s -> validateIntegerFormat(s, 0, 5)
-                                )
-                        )
-                )
-        );
+    private static void addTask(TodoItemCollection tasks) {
+        System.out.println("What should the title be?");
+        String title = SCANNER.next();
+        System.out.println("What should the description be?");
+        String description = SCANNER.next();
+        System.out.println("What should the priority be?");
+        int priority = queryInt();
+        tasks.add(new TodoItem(title, description, priority));
     }
 
-    static void removeTask() {
-        TASKS.removeIf(
-                item -> Objects.equals(
-                    item.getTitle(),
-                    query("Enter the title of the task you wish to delete:")
-                )
-        );
-    }
+    private static void removeTask(TodoItemCollection tasks) {
+        System.out.println("What is the title of the task you wish to delete?");
+        String title = SCANNER.next();
 
-    static void updateTask() {
-        TodoItem modifiedTask;
-
-        try {
-            modifiedTask = TASKS.stream()
-                    .filter(item -> Objects.equals(item.getTitle(), query("Enter the title of the task you wish to modify:")))
-                    .findFirst()
-                    .get();
-        } catch (NoSuchElementException e) {
-            System.out.println("There are no tasks with that title.");
+        if (tasks.getTask(title).isEmpty()) {
+            System.out.println("A task with that title doesn't exist.");
             return;
         }
 
-        TASKS.removeIf(
-                item -> Objects.equals(
-                        item.getTitle(),
-                        modifiedTask.getTitle()
-                )
-        );
-
-        TASKS.add(
-                new TodoItem(
-                        modifiedTask.getTitle(),
-                        query("Enter a description for the task:"),
-                        Integer.parseInt(
-                                query("Enter a priority for the task:",
-                                        s -> validateIntegerFormat(s, 0, 5)
-                                )
-                        )
-                )
-        );
+        tasks.deleteByTitle(title);
     }
 
-    static void listTasks() {
-        for (TodoItem task: TASKS) {
-            System.out.println(task);
+    private static void editTask(TodoItemCollection tasks) {
+        System.out.println("What is the title of the task you wish to edit?");
+        String title = SCANNER.next();
+        Optional<TodoItem> item = tasks.getTask(title);
+
+        if (item.isEmpty()) {
+            System.out.println("A task with that title doesn't exist.");
+            return;
+        }
+
+        System.out.println("What should the new title be?");
+        item.get().setTitle(SCANNER.next());
+        System.out.println("What should the new description be?");
+        item.get().setDescription(SCANNER.next());
+        System.out.println("What should the new priority be?");
+        item.get().setPriority(queryInt());
+    }
+
+    private static void listTasks(TodoItemCollection tasks) {
+        if (tasks.size() == 0) {
+            System.out.println("There are currently no tasks in the collection.");
+            return;
+        }
+
+        for (TodoItem todoItem: tasks) {
+            System.out.println(todoItem);
         }
     }
 
-    static String query(String queryMessage) {
-        System.out.println(queryMessage);
-        return INPUT_SCANNER.next();
+    private static int queryInt() {
+        while (true) {
+            try {
+                return SCANNER.nextInt();
+            } catch (InputMismatchException e) {
+                System.out.println("Invalid input.");
+            }
+        }
     }
 
-    static String query(String queryMessage, Predicate<String> validator) {
-        System.out.println(queryMessage);
-        String result = INPUT_SCANNER.next();
+    private static void printChoices() {
+        System.out.println("(0) Exit.\n(1) Add a task.\n(2) Remove a task.\n(3) Edit a task.\n(4) List all tasks.");
+    }
+}
 
-        while (!validator.test(result)) {
-            System.out.println("Invalid input.");
-            result = INPUT_SCANNER.next();
-        }
+class TodoItem implements Comparable<TodoItem> {
+    String title;
+    String description;
+    int priority;
 
-        return result;
+    public TodoItem(String title, String description, int priority) {
+        this.title = title;
+        this.description = description;
+        this.priority = priority;
     }
 
-    static boolean validateIntegerFormat(String s, int min, int max) {
-        int parsed;
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-        try {
-            parsed = Integer.parseInt(s);
-        } catch (NumberFormatException e) {
-            return false;
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setPriority(int priority) {
+        this.priority = priority;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Title: %s | Description: %s | Priority: %d", title, description, priority);
+    }
+
+    @Override
+    public int compareTo(TodoItem rhs) {
+        int res = this.getPriority() - rhs.getPriority();
+
+        if (res == 0) {
+            return this.getTitle().compareTo(rhs.getTitle());
         }
 
-        return parsed >= min && parsed <= max;
+        return res;
+    }
+}
+
+class TodoItemCollection implements Collection<TodoItem> {
+    ArrayList<TodoItem> items;
+
+    public TodoItemCollection() {
+        this.items = new ArrayList<>();
+    }
+
+    public Optional<TodoItem> getTask(String title) {
+        return items.stream().filter(rhs -> (Objects.equals(title, rhs.getTitle()))).findFirst();
+    }
+
+    public void deleteByTitle(String title) {
+        items.removeIf(item -> Objects.equals(item.getTitle(), title));
+    }
+
+    public void sort() {
+        items.sort(TodoItem::compareTo);
+    }
+
+    @Override
+    public int size() {
+        return items.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return items.isEmpty();
+    }
+
+    @Override
+    public boolean contains(Object o) {
+        return items.contains(o);
+    }
+
+    @Override
+    public Iterator<TodoItem> iterator() {
+        return items.iterator();
+    }
+
+    @Override
+    public void forEach(Consumer<? super TodoItem> action) {
+        this.forEach(action);
+    }
+
+    @Override
+    public Object[] toArray() {
+        return items.toArray();
+    }
+
+    @Override
+    public <T> T[] toArray(T[] a) {
+        return items.toArray(a);
+    }
+
+    @Override
+    public boolean add(TodoItem todoItem) {
+        return items.add(todoItem);
+    }
+
+    @Override
+    public boolean remove(Object o) {
+        return items.remove(o);
+    }
+
+    @Override
+    public boolean containsAll(Collection<?> c) {
+        return items.containsAll(c);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends TodoItem> c) {
+        return items.addAll(c);
+    }
+
+    @Override
+    public boolean removeAll(Collection<?> c) {
+        return items.removeAll(c);
+    }
+
+    @Override
+    public boolean retainAll(Collection<?> c) {
+        return items.retainAll(c);
+    }
+
+    @Override
+    public void clear() {
+        items.clear();
     }
 }
